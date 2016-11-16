@@ -13,11 +13,15 @@ import (
 	"github.com/ulikunitz/xz"
 )
 
+// Tar contains the uncompressed tar data and the desired Compression
+// This is the main struct of this packet
 type Tar struct {
 	Data        []byte
 	Compression CompressionType
 }
 
+// CompressionType specifies the compression.
+// Valid values: NO_COMPRESSION, GZIP, BZIP2, LZMA
 type CompressionType int
 
 const (
@@ -27,7 +31,9 @@ const (
 	LZMA
 )
 
+// NewFromDirectory creates a tar archive from the contents (!) of the given directory
 func NewFromDirectory(directory string) (*Tar, error) {
+	directory, _ = filepath.Abs(directory)
 	res := &Tar{}
 	buf := &bytes.Buffer{}
 	writer := tar.NewWriter(buf)
@@ -42,7 +48,7 @@ func NewFromDirectory(directory string) (*Tar, error) {
 		if err != nil {
 			return err
 		}
-		hdr.Name = path[len(directory)-1:]
+		hdr.Name = path[len(directory)+1:]
 		err = writer.WriteHeader(hdr)
 		if err != nil {
 			return err
@@ -66,6 +72,7 @@ func NewFromDirectory(directory string) (*Tar, error) {
 	return res, nil
 }
 
+// NewFromData loades a datablob with the specified compression
 func NewFromData(data []byte, compression CompressionType) (*Tar, error) {
 	reader := bytes.NewReader(data)
 	result := &Tar{Compression: compression}
@@ -73,11 +80,10 @@ func NewFromData(data []byte, compression CompressionType) (*Tar, error) {
 	return result, err
 }
 
+// NewFromFile loades a tar from a file.
+// CompressionType is guessed by fileextension
 func NewFromFile(path string) (*Tar, error) {
-	t := &Tar{}
-	if t.Compression == NO_COMPRESSION {
-		t.Compression = GuessCompression(path)
-	}
+	t := &Tar{Compression: GuessCompression(path)}
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -93,6 +99,8 @@ func (t *Tar) ToData() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
+// ToFile saves the tar to a file
+// If CompressionType is undefined (NO_COMPRESSION) it is guessed by fileextension
 func (t *Tar) ToFile(path string) (int64, error) {
 	if t.Compression == NO_COMPRESSION {
 		t.Compression = GuessCompression(path)
@@ -105,10 +113,15 @@ func (t *Tar) ToFile(path string) (int64, error) {
 	return t.Save(f)
 }
 
+// ToDirectory extracts the tars contents into the given directory
 func (t *Tar) ToDirectory(path string) error {
+	err := os.MkdirAll(path, 0755)
+	if err != nil {
+		return err
+	}
 	return t.ForEach(func(hdr *tar.Header, reader io.Reader) error {
 		if hdr.FileInfo().IsDir() {
-			err := os.MkdirAll(filepath.Join(installRoot, hdr.Name), os.FileMode(hdr.Mode))
+			err := os.MkdirAll(filepath.Join(path, hdr.Name), os.FileMode(hdr.Mode))
 			if err != nil {
 				return err
 			}
@@ -134,6 +147,7 @@ func (t *Tar) ToDirectory(path string) error {
 	})
 }
 
+// Save compresses the tar into the specified writer
 func (t *Tar) Save(out io.Writer) (int64, error) {
 	var compressedWriter io.Writer
 	switch t.Compression {
@@ -173,6 +187,7 @@ func (t *Tar) Save(out io.Writer) (int64, error) {
 	return int64(res), nil
 }
 
+// Load decompresses the tar from the specified reader
 func (t *Tar) Load(in io.Reader) (int64, error) {
 	var compressedReader io.Reader
 	switch t.Compression {
@@ -211,11 +226,13 @@ func (t *Tar) Load(in io.Reader) (int64, error) {
 	return bs, err
 }
 
+// GetReader returns a *tar.Reader from the stdlib
 func (t *Tar) GetReader() *tar.Reader {
 	r := bytes.NewBuffer(t.Data)
 	return tar.NewReader(r)
 }
 
+// ForEach iterates over the tars contents, and calls the given callback for each entity (directories and files)
 func (t *Tar) ForEach(cb func(header *tar.Header, reader io.Reader) error) error {
 	tarReader := t.GetReader()
 	for {
@@ -234,6 +251,7 @@ func (t *Tar) ForEach(cb func(header *tar.Header, reader io.Reader) error) error
 	return nil
 }
 
+// GuessCompression guesses the compression type by fileextension
 func GuessCompression(name string) CompressionType {
 	ext := filepath.Ext(name)
 	switch ext {
