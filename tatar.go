@@ -61,7 +61,7 @@ func NewFromDirectory(directory string) (*Tar, error) {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() {
+		if !info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
 			f, err := os.Open(path)
 			if err != nil {
 				return err
