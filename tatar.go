@@ -45,7 +45,7 @@ func NewFromDirectory(directory string) (*Tar, error) {
 			return nil
 		}
 		link := ""
-		if info.Mode()&os.ModeSymlink > 0 {
+		if info.Mode()&os.ModeSymlink != 0 {
 			l, err := os.Readlink(path)
 			if err != nil {
 				return err
@@ -136,7 +136,7 @@ func (t *Tar) ToDirectory(path string) error {
 			if err != nil {
 				return err
 			}
-		} else if hdr.FileInfo().Mode()&os.ModeSymlink != 0 {
+		} else if (hdr.FileInfo().Mode() & os.ModeSymlink) != 0 {
 			os.Symlink(hdr.Linkname, hdr.Name)
 		} else {
 			targetPath := filepath.Join(path, hdr.Name)
