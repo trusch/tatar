@@ -72,6 +72,9 @@ func NewFromDirectory(directory string) (*Tar, error) {
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
 	err = writer.Close()
 	if err != nil {
 		return nil, err
