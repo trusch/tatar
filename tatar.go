@@ -136,6 +136,8 @@ func (t *Tar) ToDirectory(path string) error {
 			if err != nil {
 				return err
 			}
+		} else if hdr.FileInfo().Mode()&os.ModeSymlink != 0 {
+			os.Symlink(hdr.Linkname, hdr.Name)
 		} else {
 			targetPath := filepath.Join(path, hdr.Name)
 			f, e := os.Create(targetPath)
