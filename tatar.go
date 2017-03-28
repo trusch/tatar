@@ -44,7 +44,15 @@ func NewFromDirectory(directory string) (*Tar, error) {
 		if filepath.Clean(directory) == filepath.Clean(path) {
 			return nil
 		}
-		hdr, err := tar.FileInfoHeader(info, "")
+		link := ""
+		if info.Mode()&os.ModeSymlink > 0 {
+			l, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			link = l
+		}
+		hdr, err := tar.FileInfoHeader(info, link)
 		if err != nil {
 			return err
 		}
